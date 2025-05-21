@@ -4,6 +4,8 @@ import express from 'express';
 import { Telegraf } from 'telegraf';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
 
@@ -19,6 +21,10 @@ if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.REPLICATE_API_TOKEN) {
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// For __dirname in ES module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // ✅ Working Replicate model for image generation
 const REPLICATE_MODEL_VERSION = 'db21e45a3f183e8600d17d7e8917f4a7c19cc7f38e38f8c69c8b27c8de2bff13';
@@ -117,9 +123,22 @@ bot.launch().then(() => {
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
-// Health check for Railway
+// ✅ Health check
 app.get('/', (req, res) => {
   res.send('🦉 Hoooty Bot is alive');
+});
+
+// ✅ Secret route (used for testing)
+app.get('/secret-path', (req, res) => {
+  res.send('🕵️‍♂️ You found the secret path. Hoot hoot!');
+});
+
+// ✅ Optional route to check if env vars are loaded
+app.get('/env', (req, res) => {
+  res.json({
+    TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN ? '✅ set' : '❌ missing',
+    REPLICATE_API_TOKEN: process.env.REPLICATE_API_TOKEN ? '✅ set' : '❌ missing'
+  });
 });
 
 app.listen(PORT, () => {
