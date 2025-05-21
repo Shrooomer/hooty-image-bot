@@ -7,7 +7,6 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Log startup status
 console.log("🚀 Starting Hooty Bot...");
 console.log("TELEGRAM_BOT_TOKEN:", process.env.TELEGRAM_BOT_TOKEN ? "✅ found" : "❌ missing");
 console.log("REPLICATE_API_TOKEN:", process.env.REPLICATE_API_TOKEN ? "✅ found" : "❌ missing");
@@ -20,11 +19,9 @@ const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Replicate SDXL Inference Endpoint
 const REPLICATE_MODEL_VERSION = 'a9758cb3a5e8d38c1e2e437a2fc59c7d4aaefefb6a0c528d8b09c0c84f7b4c61';
 const LORA_VERSION_URL = 'https://replicate.com/cloneofsimo/lora-training/versions/bgtawkktt5rj00cpy9pbtcj7vm';
 
-// Generate image using Replicate API
 async function generateImage(prompt) {
   const response = await fetch('https://api.replicate.com/v1/predictions', {
     method: 'POST',
@@ -54,7 +51,7 @@ async function generateImage(prompt) {
 
   const predictionId = json.id;
   let imageUrl = null;
-  const maxWaitTime = 540_000; // 9 minutes
+  const maxWaitTime = 540_000;
   const interval = 3000;
   const startTime = Date.now();
 
@@ -84,7 +81,6 @@ async function generateImage(prompt) {
   return imageUrl;
 }
 
-// Avoid duplicate message handling
 const handledMessages = new Set();
 
 bot.command('hooty', async (ctx) => {
@@ -111,19 +107,34 @@ bot.command('hooty', async (ctx) => {
   setTimeout(() => handledMessages.delete(uniqueKey), 5 * 60 * 1000);
 });
 
-// Launch bot in polling mode
-bot.launch().then(() => {
-  console.log("🤖 Bot is up and polling Telegram...");
-});
+// 🛠️ Handle POST /secret-path from Telegram webhook
+app.use('/secret-path', express.json(), bot.webhookCallback('/secret-path'));
 
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
-
-// Optional Express for Railway health check
+// Health check route
 app.get('/', (req, res) => {
   res.send('🦉 Hoooty Bot is alive');
 });
 
-app.listen(PORT, () => {
+// 🧠 Set webhook and start server
+app.listen(PORT, async () => {
   console.log(`🌐 Express server running on port ${PORT}`);
+
+  const domain = process.env.RAILWAY_PUBLIC_DOMAIN || 'YOUR-SUBDOMAIN.up.railway.app';
+  const webhookUrl = `https://${domain}/secret-path`;
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/setWebhook?url=${webhookUrl}`);
+    const data = await res.json();
+
+    if (data.ok) {
+      console.log("✅ Telegram webhook set successfully");
+    } else {
+      console.error("❌ Failed to set Telegram webhook:", data);
+    }
+  } catch (err) {
+    console.error("🚨 Error setting Telegram webhook:", err);
+  }
 });
+
+// Remove polling mode:
+// bot.launch() is removed
