@@ -24,7 +24,6 @@ const PORT = process.env.PORT || 3000;
 const REPLICATE_MODEL_VERSION = 'a9758cb3a5e8d38c1e2e437a2fc59c7d4aaefefb6a0c528d8b09c0c84f7b4c61';
 const LORA_VERSION_URL = 'https://replicate.com/cloneofsimo/lora-training/versions/bgtawkktt5rj00cpy9pbtcj7vm';
 
-// Generate image using Replicate API
 async function generateImage(prompt) {
   const response = await fetch('https://api.replicate.com/v1/predictions', {
     method: 'POST',
@@ -55,7 +54,7 @@ async function generateImage(prompt) {
   const predictionId = json.id;
   let imageUrl = null;
   const maxWaitTime = 540_000; // 9 minutes
-  const interval = 3000; // 3 seconds
+  const interval = 3000;
   const startTime = Date.now();
 
   while (!imageUrl) {
@@ -84,7 +83,6 @@ async function generateImage(prompt) {
   return imageUrl;
 }
 
-// Prevent duplicate replies
 const handledMessages = new Set();
 
 bot.command('hooty', async (ctx) => {
@@ -108,20 +106,31 @@ bot.command('hooty', async (ctx) => {
     ctx.reply('Something went wrong generating the image.');
   }
 
-  setTimeout(() => handledMessages.delete(uniqueKey), 5 * 60 * 1000); // Clean up after 5 mins
+  setTimeout(() => handledMessages.delete(uniqueKey), 5 * 60 * 1000);
 });
 
 // Express setup
-try {
-  app.use(bot.webhookCallback('/secret-path'));
+app.use(bot.webhookCallback('/secret-path'));
 
-  app.get('/', (req, res) => {
-    res.send('🦉 Hoooty Bot is live');
-  });
+app.get('/', (req, res) => {
+  res.send('🦉 Hoooty Bot is live');
+});
 
-  app.listen(PORT, () => {
-    console.log(`✅ Server running on port ${PORT}`);
-  });
-} catch (err) {
-  console.error('🚨 App crashed during startup:', err);
-}
+app.listen(PORT, async () => {
+  console.log(`✅ Server running on port ${PORT}`);
+
+  const webhookUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN || 'YOUR-SUBDOMAIN.up.railway.app'}/secret-path`;
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/setWebhook?url=${webhookUrl}`);
+    const data = await res.json();
+
+    if (data.ok) {
+      console.log("✅ Telegram webhook set successfully");
+    } else {
+      console.error("❌ Failed to set Telegram webhook:", data);
+    }
+  } catch (err) {
+    console.error("🚨 Error setting Telegram webhook:", err);
+  }
+});
